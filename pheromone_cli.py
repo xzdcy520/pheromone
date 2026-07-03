@@ -117,7 +117,7 @@ def cmd_status(args):
         print(f"时间基线挥发: 每天 {st['evaporation_rate']*100:.1f}%")
         print(f"活动竞争挥发: 每次deposit同类竞争方案 {st['activity_evaporation_rate']*100:.0f}%")
         print(f"失败加速惩罚: 失败方案额外自挥发 {st['failure_extra_evaporation']*100:.0f}%")
-        print(f"置信度免疫:   成功≥{st['confidence_threshold']}次且成功率≥{st['confidence_rate_threshold']*100:.0f}% → 时间挥发减半")
+        print(f"置信度免疫:   成功≥{st['confidence_threshold']}次且成功率≥{st['confidence_rate_threshold']*100:.0f}% → 时间/竞争挥发减半（失败惩罚不免疫）")
         print(f"探索概率:     {st['exploration_rate']*100:.0f}%")
         print(f"信息素下限:   {core.MIN_PHEROMONE}")
 
