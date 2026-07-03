@@ -1,18 +1,18 @@
 """
-信息素核心库 - 蚁群智能的核心引擎
+信息素核心库 - 蚁群智能的核心引擎 (v2.1)
 提供信息素的查询、沉积、挥发三大核心功能
 
-混合挥发模型:
-  总挥发 = 时间基线衰减 + 活动竞争衰减 + 失败加速惩罚 - 置信度免疫
+混合挥发模型 V2.1:
+  总挥发 = 时间基线衰减 + 活动竞争衰减(置信度感知) + 失败加速惩罚(符号感知) - 置信度免疫
+  - 置信度免疫同时作用于时间衰减和活动竞争
+  - 失败惩罚使用符号感知公式 P -= |P|*rate，负值正确加速崩塌
 """
 
 import json
 import os
-import time
-import uuid
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional
 import threading
 import random
 
@@ -99,9 +99,6 @@ class PheromoneCore:
             return pheromone_value * ((1 - rate) ** days_passed)
         except (ValueError, TypeError):
             return pheromone_value
-
-    def _calculate_evaporation(self, pheromone_value: float, last_used: str) -> float:
-        return self._calculate_time_evaporation(pheromone_value, last_used)
 
     def _normalize_task_type(self, task_type: str) -> str:
         return task_type.strip().lower()
@@ -210,14 +207,18 @@ class PheromoneCore:
             solution["pheromone"] = solution.get("pheromone", 0) + deposit_value
 
             if not success:
-                solution["pheromone"] = solution["pheromone"] * (1 - self.FAILURE_EXTRA_EVAPORATION)
+                solution["pheromone"] = solution["pheromone"] - abs(solution["pheromone"]) * self.FAILURE_EXTRA_EVAPORATION
 
             for sname, sdata in tasks_data[task_type].items():
                 if sname == solution_name:
                     continue
                 if sdata.get("pheromone", 0) > 0:
+                    competitor_sc = sdata.get("success_count", 0)
+                    competitor_fc = sdata.get("fail_count", 0)
+                    competitor_confident = self._is_confident(competitor_sc, competitor_fc)
+                    act_rate = self.ACTIVITY_EVAPORATION_RATE * (0.5 if competitor_confident else 1.0)
                     sdata["pheromone"] = round(
-                        sdata["pheromone"] * (1 - self.ACTIVITY_EVAPORATION_RATE), 4
+                        sdata["pheromone"] * (1 - act_rate), 4
                     )
                     if sdata["pheromone"] < self.MIN_PHEROMONE:
                         sdata["pheromone"] = self.MIN_PHEROMONE
